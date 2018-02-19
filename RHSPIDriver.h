@@ -44,6 +44,9 @@ public:
     /// \param[in] spi Reference to the SPI interface to use. The default is to use a default built-in Hardware interface.
     RHSPIDriver(uint8_t slaveSelectPin = SS, RHGenericSPI& spi = hardware_spi);
 
+    /// return a helpful value for troubleshooting platforms;  added by gojimmypi
+    uint8_t thisSlaveSelectPin();
+
     /// Initialise the Driver transport hardware and software.
     /// Make sure the Driver is properly configured before calling init().
     /// \return true if initialisation succeeded.
