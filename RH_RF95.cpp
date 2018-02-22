@@ -1,7 +1,7 @@
 // RH_RF95.cpp
 //
 // Copyright (C) 2011 Mike McCauley
-// $Id: RH_RF95.cpp,v 1.11 2016/04/04 01:40:12 mikem Exp $
+// $Id: RH_RF95.cpp,v 1.18 2018/01/06 23:50:45 mikem Exp $
 
 #include <RH_RF95.h>
 
@@ -16,10 +16,10 @@ uint8_t RH_RF95::_interruptCount = 0; // Index into _deviceForInterrupt for next
 PROGMEM static const RH_RF95::ModemConfig MODEM_CONFIG_TABLE[] =
 {
     //  1d,     1e,      26
-    { 0x72,   0x74,    0x00}, // Bw125Cr45Sf128 (the chip default)
-    { 0x92,   0x74,    0x00}, // Bw500Cr45Sf128
-    { 0x48,   0x94,    0x00}, // Bw31_25Cr48Sf512
-    { 0x78,   0xc4,    0x00}, // Bw125Cr48Sf4096
+    { 0x72,   0x74,    0x04}, // Bw125Cr45Sf128 (the chip default), AGC enabled
+    { 0x92,   0x74,    0x04}, // Bw500Cr45Sf128, AGC enabled
+    { 0x48,   0x94,    0x04}, // Bw31_25Cr48Sf512, AGC enabled
+    { 0x78,   0xc4,    0x0c}, // Bw125Cr48Sf4096, AGC enabled
     
 };
 
@@ -44,6 +44,9 @@ bool RH_RF95::init()
 #ifdef RH_ATTACHINTERRUPT_TAKES_PIN_NUMBER
     interruptNumber = _interruptPin;
 #endif
+
+    // Tell the low level SPI interface we will use SPI within this interrupt
+    spiUsingInterrupt(interruptNumber);
 
     // No way to check the device type :-(
     
@@ -137,11 +140,24 @@ void RH_RF95::handleInterrupt()
 	_bufLen = len;
 	spiWrite(RH_RF95_REG_12_IRQ_FLAGS, 0xff); // Clear all IRQ flags
 
-	// Remember the RSSI of this packet
+	// Remember the last signal to noise ratio, LORA mode
+	// Per page 111, SX1276/77/78/79 datasheet
+	_lastSNR = (int8_t)spiRead(RH_RF95_REG_19_PKT_SNR_VALUE) / 4;
+
+	// Remember the RSSI of this packet, LORA mode
 	// this is according to the doc, but is it really correct?
 	// weakest receiveable signals are reported RSSI at about -66
-	_lastRssi = spiRead(RH_RF95_REG_1A_PKT_RSSI_VALUE) - 137;
-
+	_lastRssi = spiRead(RH_RF95_REG_1A_PKT_RSSI_VALUE);
+	// Adjust the RSSI, datasheet page 87
+	if (_lastSNR < 0)
+	    _lastRssi = _lastRssi + _lastSNR;
+	else
+	    _lastRssi = (int)_lastRssi * 16 / 15;
+	if (_usingHFport)
+	    _lastRssi -= 157;
+	else
+	    _lastRssi -= 164;
+	    
 	// We have received a message.
 	validateRxBuf(); 
 	if (_rxBufValid)
@@ -157,7 +173,9 @@ void RH_RF95::handleInterrupt()
         _cad = irq_flags & RH_RF95_CAD_DETECTED;
         setModeIdle();
     }
-    
+    // Sigh: on some processors, for some unknown reason, doing this only once does not actually
+    // clear the radio's interrupt flag. So we do it twice. Why?
+    spiWrite(RH_RF95_REG_12_IRQ_FLAGS, 0xff); // Clear all IRQ flags
     spiWrite(RH_RF95_REG_12_IRQ_FLAGS, 0xff); // Clear all IRQ flags
 }
 
@@ -287,6 +305,7 @@ bool RH_RF95::setFrequency(float centre)
     spiWrite(RH_RF95_REG_06_FRF_MSB, (frf >> 16) & 0xff);
     spiWrite(RH_RF95_REG_07_FRF_MID, (frf >> 8) & 0xff);
     spiWrite(RH_RF95_REG_08_FRF_LSB, frf & 0xff);
+    _usingHFport = (centre >= 779.0);
 
     return true;
 }
@@ -416,3 +435,45 @@ bool RH_RF95::isChannelActive()
     return _cad;
 }
 
+void RH_RF95::enableTCXO()
+{
+    while ((spiRead(RH_RF95_REG_4B_TCXO) & RH_RF95_TCXO_TCXO_INPUT_ON) != RH_RF95_TCXO_TCXO_INPUT_ON)
+    {
+	sleep();
+	spiWrite(RH_RF95_REG_4B_TCXO, (spiRead(RH_RF95_REG_4B_TCXO) | RH_RF95_TCXO_TCXO_INPUT_ON));
+    } 
+}
+
+// From section 4.1.5 of SX1276/77/78/79
+// Ferror = FreqError * 2**24 * BW / Fxtal / 500
+int RH_RF95::frequencyError()
+{
+    int32_t freqerror = 0;
+
+    // Convert 2.5 bytes (5 nibbles, 20 bits) to 32 bit signed int
+    // Caution: some C compilers make errors with eg:
+    // freqerror = spiRead(RH_RF95_REG_28_FEI_MSB) << 16
+    // so we go more carefully.
+    freqerror = spiRead(RH_RF95_REG_28_FEI_MSB);
+    freqerror <<= 8;
+    freqerror |= spiRead(RH_RF95_REG_29_FEI_MID);
+    freqerror <<= 8;
+    freqerror |= spiRead(RH_RF95_REG_2A_FEI_LSB);
+    // Sign extension into top 3 nibbles
+    if (freqerror & 0x80000)
+	freqerror |= 0xfff00000;
+
+    int error = 0; // In hertz
+    float bw_tab[] = {7.8, 10.4, 15.6, 20.8, 31.25, 41.7, 62.5, 125, 250, 500};
+    uint8_t bwindex = spiRead(RH_RF95_REG_1D_MODEM_CONFIG1) >> 4;
+    if (bwindex < (sizeof(bw_tab) / sizeof(float)))
+	error = (float)freqerror * bw_tab[bwindex] * ((float)(1L << 24) / (float)RH_RF95_FXOSC / 500.0);
+    // else not defined
+
+    return error;
+}
+
+int RH_RF95::lastSNR()
+{
+    return _lastSNR;
+}

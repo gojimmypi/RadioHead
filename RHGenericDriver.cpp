@@ -1,7 +1,7 @@
 // RHGenericDriver.cpp
 //
 // Copyright (C) 2014 Mike McCauley
-// $Id: RHGenericDriver.cpp,v 1.19 2015/12/11 01:10:24 mikem Exp $
+// $Id: RHGenericDriver.cpp,v 1.23 2018/02/11 23:57:18 mikem Exp mikem $
 
 #include <RHGenericDriver.h>
 
@@ -84,7 +84,11 @@ bool RHGenericDriver::waitCAD()
     {
          if (millis() - t > _cad_timeout) 
 	     return false;
+#if (RH_PLATFORM == RH_PLATFORM_STM32) // stdlib on STMF103 gets confused if random is redefined
+	 delay(_random(1, 10) * 100);
+#else
          delay(random(1, 10) * 100); // Should these values be configurable? Macros?
+#endif
     }
 
     return true;
@@ -147,7 +151,7 @@ uint8_t RHGenericDriver::headerFlags()
     return _rxHeaderFlags;
 }
 
-int8_t RHGenericDriver::lastRssi()
+int16_t RHGenericDriver::lastRssi()
 {
     return _lastRssi;
 }
@@ -170,10 +174,9 @@ bool  RHGenericDriver::sleep()
 // Diagnostic help
 void RHGenericDriver::printBuffer(const char* prompt, const uint8_t* buf, uint8_t len)
 {
-    uint8_t i;
-
 #ifdef RH_HAVE_SERIAL
     Serial.println(prompt);
+    uint8_t i;
     for (i = 0; i < len; i++)
     {
 	if (i % 16 == 15)

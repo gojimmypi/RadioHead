@@ -1,7 +1,7 @@
 // RH_ASK.cpp
 //
 // Copyright (C) 2014 Mike McCauley
-// $Id: RH_ASK.cpp,v 1.20 2017/01/12 23:58:00 mikem Exp $
+// $Id: RH_ASK.cpp,v 1.22 2018/02/11 23:57:18 mikem Exp mikem $
 
 #include <RH_ASK.h>
 #include <RHCRC.h>
@@ -47,8 +47,8 @@ RH_ASK::RH_ASK(uint16_t speed, uint8_t rxPin, uint8_t txPin, uint8_t pttPin, boo
     _rxPin(rxPin),
     _txPin(txPin),
     _pttPin(pttPin),
-    _pttInverted(pttInverted),
-    _rxInverted(false)
+    _rxInverted(false),
+    _pttInverted(pttInverted)
 {
     // Initialise the first 8 nibbles of the tx buffer to be the standard
     // preamble. We will append messages after that. 0x38, 0x2c is the start symbol before
@@ -385,13 +385,19 @@ void RH_ASK::timerSetup()
     ConfigIntTimer1(T1_INT_ON | T1_INT_PRIOR_1);
 
 #elif (RH_PLATFORM == RH_PLATFORM_ESP8266)
-    void INTERRUPT_ATTR esp8266_timer_interrupt_handler(); // Forward declarat
+    void INTERRUPT_ATTR esp8266_timer_interrupt_handler(); // Forward declaration
     // The - 120 is a heuristic to correct for interrupt handling overheads
     _timerIncrement = (clockCyclesPerMicrosecond() * 1000000 / 8 / _speed) - 120;
     timer0_isr_init();
     timer0_attachInterrupt(esp8266_timer_interrupt_handler);
     timer0_write(ESP.getCycleCount() + _timerIncrement);
 //    timer0_write(ESP.getCycleCount() + 41660000);
+#elif (RH_PLATFORM == RH_PLATFORM_ESP32)
+    void IRAM_ATTR esp32_timer_interrupt_handler(); // Forward declaration
+    hw_timer_t * timer = timerBegin(0, 80, true); // Alarm value will be in in us
+    timerAttachInterrupt(timer, &esp32_timer_interrupt_handler, true);
+    timerAlarmWrite(timer, 1000000 / _speed / 8, true);
+    timerAlarmEnable(timer);
 #endif
 
 }
@@ -670,7 +676,11 @@ void INTERRUPT_ATTR esp8266_timer_interrupt_handler()
 //  digitalWrite(4, toggle);
     thisASKDriver->handleTimerInterrupt();
 }
-
+#elif (RH_PLATFORM == RH_PLATFORM_ESP32)
+void IRAM_ATTR esp32_timer_interrupt_handler()
+{
+    thisASKDriver->handleTimerInterrupt();
+}
 #endif
 
 // Convert a 6 bit encoded symbol into its 4 bit decoded equivalent
