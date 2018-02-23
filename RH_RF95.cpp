@@ -1,7 +1,7 @@
 // RH_RF95.cpp
 //
 // Copyright (C) 2011 Mike McCauley
-// $Id: RH_RF95.cpp,v 1.18 2018/01/06 23:50:45 mikem Exp $
+// $Id: RH_RF95.cpp,v 1.18x 2018/02/22 20:55:55 gojimmypi Exp $
 
 #include <RH_RF95.h>
 
@@ -39,10 +39,31 @@ bool RH_RF95::init()
 
     // Determine the interrupt number that corresponds to the interruptPin
     int interruptNumber = digitalPinToInterrupt(_interruptPin);
-    if (interruptNumber == NOT_AN_INTERRUPT)
-	return false;
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+    Serial.print("RH_RF95 interruptNumber=");
+    Serial.println(interruptNumber);
+#endif
+
+
+    if (interruptNumber == NOT_AN_INTERRUPT) {
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+		Serial.println("RH_RF95 NOT_AN_INTERRUPT!");
+#endif
+		return false;
+	}
 #ifdef RH_ATTACHINTERRUPT_TAKES_PIN_NUMBER
     interruptNumber = _interruptPin;
+  #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+    Serial.print("RH_ATTACHINTERRUPT_TAKES_PIN_NUMBER is defined!");
+    Serial.print("RH_RF95 interruptNumber=");
+    Serial.println(interruptNumber);
+  #endif
+#else
+  #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+	Serial.println("RH_ATTACHINTERRUPT_TAKES_PIN_NUMBER is NOT defined (typically only Arduino)");
+	Serial.print("RH_RF95 interruptNumber=");
+	Serial.println(interruptNumber);
+  #endif
 #endif
 
     // Tell the low level SPI interface we will use SPI within this interrupt
@@ -56,9 +77,26 @@ bool RH_RF95::init()
     // Check we are in sleep mode, with LORA set
     if (spiRead(RH_RF95_REG_01_OP_MODE) != (RH_RF95_MODE_SLEEP | RH_RF95_LONG_RANGE_MODE))
     {
-//	Serial.println(spiRead(RH_RF95_REG_01_OP_MODE), HEX);
-	return false; // No device present?
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+		Serial.println("No LoRa Device Found! ");
+		Serial.print("spiRead(RH_RF95_REG_01_OP_MODE) = ");
+		Serial.println(spiRead(RH_RF95_REG_01_OP_MODE), HEX);
+		Serial.println();
+#endif
+		return false; // No device present?
     }
+	else {
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+		Serial.println("LoRa Device Found!");
+		Serial.print("- spiRead(RH_RF95_REG_01_OP_MODE) = ");
+		Serial.println(spiRead(RH_RF95_REG_01_OP_MODE), HEX);
+#endif
+	}
+
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+    Serial.print("RH_RF95 pinMode _interruptPin=");
+    Serial.println(_interruptPin);
+#endif
 
     // Add by Adrien van den Bossche <vandenbo@univ-tlse2.fr> for Teensy
     // ARM M4 requires the below. else pin interrupt doesn't work properly.
@@ -79,15 +117,80 @@ bool RH_RF95::init()
 	else
 	    return false; // Too many devices, not enough interrupt vectors
     }
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+    Serial.print("RH_RF95 _myInterruptIndex = ");
+    Serial.println(_myInterruptIndex);
+#endif
     _deviceForInterrupt[_myInterruptIndex] = this;
-    if (_myInterruptIndex == 0)
-	attachInterrupt(interruptNumber, isr0, RISING);
-    else if (_myInterruptIndex == 1)
-	attachInterrupt(interruptNumber, isr1, RISING);
-    else if (_myInterruptIndex == 2)
-	attachInterrupt(interruptNumber, isr2, RISING);
-    else
-	return false; // Too many devices, not enough interrupt vectors
+
+	// static bool g_isrServiceInstalled = false;
+	// If we have not yet installed the ISR service handler, install it now.
+	//if (g_isrServiceInstalled == false) {
+	//	ESP_LOGD(LOG_TAG, "Installing the global ISR service");
+	//	esp_err_t errRc = ::gpio_install_isr_service(0);
+	//	if (errRc != ESP_OK) {
+	//		Serial.print(" gpio_install_isr_service error:");
+	//		Serial.println(errRc);
+	//	}
+	//	else {
+	//		Serial.println("gpio_install_isr_service complete!");
+	//	}
+	//	g_isrServiceInstalled = true;
+	//}
+
+	if (_myInterruptIndex == 0) {
+		//void*      pArgs;
+		//esp_err_t errRc = ::gpio_isr_handler_add((gpio_num_t)_interruptPin, (gpio_isr_t)isr0, pArgs);
+		//if (errRc != ESP_OK) {
+		//	Serial.print(" gpio_isr_handler_add error:");
+		//	Serial.println(errRc);
+		//}
+		//else
+		//{
+		//	Serial.print(" gpio_isr_handler_add!");
+		//	Serial.println(errRc);
+		//}
+
+		//esp_err_t rc = ::gpio_intr_enable((gpio_num_t)_interruptPin);
+		//if (rc != ESP_OK) {
+		//	Serial.print(" gpio_intr_enable error:");
+		//	Serial.println(rc);
+		//}
+
+		//attachInterrupt(interruptNumber, handleInterruptTest, RISING);
+		attachInterrupt(interruptNumber, isr0, RISING);
+
+		//		ESP_INTR_ENABLE(interruptNumber);
+//		Serial.print(" gpio_intr_enable:");
+//		Serial.println(interruptNumber);
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+		Serial.print("RH_RF95 isr0 attachInterrupt=");
+		Serial.println(interruptNumber);
+#endif
+	}
+	else if (_myInterruptIndex == 1)
+	{
+		attachInterrupt(interruptNumber, isr1, RISING);
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+		Serial.print("RH_RF95 isr1 attachInterrupt=");
+		Serial.println(interruptNumber);
+#endif
+	}
+	else if (_myInterruptIndex == 2)
+	{
+		attachInterrupt(interruptNumber, isr2, RISING);
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+		Serial.print("RH_RF95 isr2 attachInterrupt=");
+		Serial.println(interruptNumber);
+#endif
+	}
+	else
+	{
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+		Serial.println("RH_RF95 ERROR not enough interrupt vectors!");
+#endif
+		return false; // Too many devices, not enough interrupt vectors
+	}
 
     // Set up FIFO
     // We configure so that we can use the entire 256 byte FIFO for either receive
@@ -103,15 +206,17 @@ bool RH_RF95::init()
 
     setModeIdle();
 
+
     // Set up default configuration
     // No Sync Words in LORA mode.
-    setModemConfig(Bw125Cr45Sf128); // Radio default
+    // setModemConfig(Bw125Cr45Sf128); // Radio default
 //    setModemConfig(Bw125Cr48Sf4096); // slow and reliable?
-    setPreambleLength(8); // Default is 8
+    // setPreambleLength(8); // Default is 8
     // An innocuous ISM frequency, same as RF22's
-    setFrequency(434.0);
+    setFrequency(433.0);
     // Lowish power
     setTxPower(13);
+    Serial.println("RH_RF95::init() complete!");
 
     return true;
 }
@@ -121,62 +226,79 @@ bool RH_RF95::init()
 // On MiniWirelessLoRa, only one of the several interrupt lines (DI0) from the RFM95 is usefuly 
 // connnected to the processor.
 // We use this to get RxDone and TxDone interrupts
+
+static DRAM_ATTR int _countInterrupt = 0;
+
+IRAM_ATTR int RH_RF95::countInterrupt() {
+	return _countInterrupt;
+}
+
+void RH_RF95::handleInterruptTest() {
+	_countInterrupt++;
+}
+
+// IRAM_ATTR needed for ESP32 ?
 void RH_RF95::handleInterrupt()
 {
-    // Read the interrupt register
-    uint8_t irq_flags = spiRead(RH_RF95_REG_12_IRQ_FLAGS);
-    if (_mode == RHModeRx && irq_flags & (RH_RF95_RX_TIMEOUT | RH_RF95_PAYLOAD_CRC_ERROR))
-    {
-	_rxBad++;
-    }
-    else if (_mode == RHModeRx && irq_flags & RH_RF95_RX_DONE)
-    {
-	// Have received a packet
-	uint8_t len = spiRead(RH_RF95_REG_13_RX_NB_BYTES);
+	_countInterrupt++;
+	//Serial.print("RH_RF95::handleInterrupt");
+	//Serial.println("!");
 
-	// Reset the fifo read ptr to the beginning of the packet
-	spiWrite(RH_RF95_REG_0D_FIFO_ADDR_PTR, spiRead(RH_RF95_REG_10_FIFO_RX_CURRENT_ADDR));
-	spiBurstRead(RH_RF95_REG_00_FIFO, _buf, len);
-	_bufLen = len;
-	spiWrite(RH_RF95_REG_12_IRQ_FLAGS, 0xff); // Clear all IRQ flags
 
-	// Remember the last signal to noise ratio, LORA mode
-	// Per page 111, SX1276/77/78/79 datasheet
-	_lastSNR = (int8_t)spiRead(RH_RF95_REG_19_PKT_SNR_VALUE) / 4;
+	// Read the interrupt register
+	uint8_t irq_flags = spiRead(RH_RF95_REG_12_IRQ_FLAGS);
+	if (_mode == RHModeRx && irq_flags & (RH_RF95_RX_TIMEOUT | RH_RF95_PAYLOAD_CRC_ERROR))
+	{
+		_rxBad++;
+	}
+	else if (_mode == RHModeRx && irq_flags & RH_RF95_RX_DONE)
+	{
+		// Have received a packet
+		uint8_t len = spiRead(RH_RF95_REG_13_RX_NB_BYTES);
 
-	// Remember the RSSI of this packet, LORA mode
-	// this is according to the doc, but is it really correct?
-	// weakest receiveable signals are reported RSSI at about -66
-	_lastRssi = spiRead(RH_RF95_REG_1A_PKT_RSSI_VALUE);
-	// Adjust the RSSI, datasheet page 87
-	if (_lastSNR < 0)
-	    _lastRssi = _lastRssi + _lastSNR;
-	else
-	    _lastRssi = (int)_lastRssi * 16 / 15;
-	if (_usingHFport)
-	    _lastRssi -= 157;
-	else
-	    _lastRssi -= 164;
-	    
-	// We have received a message.
-	validateRxBuf(); 
-	if (_rxBufValid)
-	    setModeIdle(); // Got one 
-    }
-    else if (_mode == RHModeTx && irq_flags & RH_RF95_TX_DONE)
-    {
-	_txGood++;
-	setModeIdle();
-    }
-    else if (_mode == RHModeCad && irq_flags & RH_RF95_CAD_DONE)
-    {
-        _cad = irq_flags & RH_RF95_CAD_DETECTED;
-        setModeIdle();
-    }
-    // Sigh: on some processors, for some unknown reason, doing this only once does not actually
+		// Reset the fifo read ptr to the beginning of the packet
+		spiWrite(RH_RF95_REG_0D_FIFO_ADDR_PTR, spiRead(RH_RF95_REG_10_FIFO_RX_CURRENT_ADDR));
+		spiBurstRead(RH_RF95_REG_00_FIFO, _buf, len);
+		_bufLen = len;
+		spiWrite(RH_RF95_REG_12_IRQ_FLAGS, 0xff); // Clear all IRQ flags
+
+		// Remember the last signal to noise ratio, LORA mode
+		// Per page 111, SX1276/77/78/79 datasheet
+		_lastSNR = (int8_t)spiRead(RH_RF95_REG_19_PKT_SNR_VALUE) / 4;
+
+		// Remember the RSSI of this packet, LORA mode
+		// this is according to the doc, but is it really correct?
+		// weakest receiveable signals are reported RSSI at about -66
+		_lastRssi = spiRead(RH_RF95_REG_1A_PKT_RSSI_VALUE);
+		// Adjust the RSSI, datasheet page 87
+		if (_lastSNR < 0)
+			_lastRssi = _lastRssi + _lastSNR;
+		else
+			_lastRssi = (int)_lastRssi * 16 / 15;
+		if (_usingHFport)
+			_lastRssi -= 157;
+		else
+			_lastRssi -= 164;
+
+		// We have received a message.
+		validateRxBuf();
+		if (_rxBufValid)
+			setModeIdle(); // Got one 
+	}
+	else if (_mode == RHModeTx && irq_flags & RH_RF95_TX_DONE)
+	{
+		_txGood++;
+		setModeIdle();
+	}
+	else if (_mode == RHModeCad && irq_flags & RH_RF95_CAD_DONE)
+	{
+		_cad = irq_flags & RH_RF95_CAD_DETECTED;
+		setModeIdle();
+	}
+	// Sigh: on some processors, for some unknown reason, doing this only once does not actually
     // clear the radio's interrupt flag. So we do it twice. Why?
-    spiWrite(RH_RF95_REG_12_IRQ_FLAGS, 0xff); // Clear all IRQ flags
-    spiWrite(RH_RF95_REG_12_IRQ_FLAGS, 0xff); // Clear all IRQ flags
+	spiWrite(RH_RF95_REG_12_IRQ_FLAGS, 0xff); // Clear all IRQ flags  
+	spiWrite(RH_RF95_REG_12_IRQ_FLAGS, 0xff); // Clear all IRQ flags
 }
 
 // These are low level functions that call the interrupt handler for the correct
@@ -184,45 +306,45 @@ void RH_RF95::handleInterrupt()
 // 3 interrupts allows us to have 3 different devices
 void RH_RF95::isr0()
 {
-    if (_deviceForInterrupt[0])
-	_deviceForInterrupt[0]->handleInterrupt();
+	if (_deviceForInterrupt[0])
+		_deviceForInterrupt[0]->handleInterrupt();
 }
 void RH_RF95::isr1()
 {
-    if (_deviceForInterrupt[1])
-	_deviceForInterrupt[1]->handleInterrupt();
+	if (_deviceForInterrupt[1])
+		_deviceForInterrupt[1]->handleInterrupt();
 }
 void RH_RF95::isr2()
 {
-    if (_deviceForInterrupt[2])
-	_deviceForInterrupt[2]->handleInterrupt();
+	if (_deviceForInterrupt[2])
+		_deviceForInterrupt[2]->handleInterrupt();
 }
 
 // Check whether the latest received message is complete and uncorrupted
 void RH_RF95::validateRxBuf()
 {
-    if (_bufLen < 4)
-	return; // Too short to be a real message
-    // Extract the 4 headers
-    _rxHeaderTo    = _buf[0];
-    _rxHeaderFrom  = _buf[1];
-    _rxHeaderId    = _buf[2];
-    _rxHeaderFlags = _buf[3];
-    if (_promiscuous ||
-	_rxHeaderTo == _thisAddress ||
-	_rxHeaderTo == RH_BROADCAST_ADDRESS)
-    {
-	_rxGood++;
-	_rxBufValid = true;
-    }
+	if (_bufLen < 4)
+		return; // Too short to be a real message
+		// Extract the 4 headers
+	_rxHeaderTo    = _buf[0];
+	_rxHeaderFrom  = _buf[1];
+	_rxHeaderId    = _buf[2];
+	_rxHeaderFlags = _buf[3];
+	if (_promiscuous ||
+		_rxHeaderTo == _thisAddress ||
+		_rxHeaderTo == RH_BROADCAST_ADDRESS)
+	{
+		_rxGood++;
+		_rxBufValid = true;
+	}
 }
 
 bool RH_RF95::available()
 {
-    if (_mode == RHModeTx)
-	return false;
-    setModeRx();
-    return _rxBufValid; // Will be set by the interrupt handler when a good message is received
+	if (_mode == RHModeTx)
+		return false;
+	setModeRx();
+	return _rxBufValid; // Will be set by the interrupt handler when a good message is received
 }
 
 void RH_RF95::clearRxBuf()
@@ -279,7 +401,7 @@ bool RH_RF95::send(const uint8_t* data, uint8_t len)
 
 bool RH_RF95::printRegisters()
 {
-#ifdef RH_HAVE_SERIAL
+#ifdef RH_HAVE_SERIAL 
     uint8_t registers[] = { 0x01, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x014, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27};
 
     uint8_t i;
@@ -312,41 +434,119 @@ bool RH_RF95::setFrequency(float centre)
 
 void RH_RF95::setModeIdle()
 {
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+	Serial.println("RH_RF95 Set mode idle! ");
+#endif
+
     if (_mode != RHModeIdle)
     {
-	spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_STDBY);
-	_mode = RHModeIdle;
-    }
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
+		int beforeReg = spiRead(RH_RF95_REG_01_OP_MODE);
+		Serial.print("  before write, reg = 0x");
+		Serial.println(beforeReg, HEX);
+
+		Serial.println("-spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_STDBY)");
+#endif
+
+		spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_STDBY);
+		_mode = RHModeIdle;
+
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
+		int afterReg = spiRead(RH_RF95_REG_01_OP_MODE);
+		Serial.print("  after write, reg = 0x");
+		Serial.println(afterReg, HEX);
+#endif
+	}
 }
 
 bool RH_RF95::sleep()
 {
-    if (_mode != RHModeSleep)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+	Serial.println("RH_RF95 Set mode sleep! ");
+#endif
+	if (_mode != RHModeSleep)
     {
-	spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_SLEEP);
-	_mode = RHModeSleep;
-    }
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
+		int beforeReg = spiRead(RH_RF95_REG_01_OP_MODE);
+		Serial.print("  before write, reg = 0x");
+		Serial.println(beforeReg, HEX);
+
+		Serial.println("-spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_SLEEP)");
+#endif
+
+		spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_SLEEP);
+		_mode = RHModeSleep;
+
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
+		int afterReg = spiRead(RH_RF95_REG_01_OP_MODE);
+		Serial.print("  after write, reg = 0x");
+		Serial.println(afterReg, HEX);
+#endif
+	}
     return true;
 }
 
 void RH_RF95::setModeRx()
 {
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+	Serial.println("RH_RF95 Set mode Rx! ");
+#endif
     if (_mode != RHModeRx)
     {
-	spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_RXCONTINUOUS);
-	spiWrite(RH_RF95_REG_40_DIO_MAPPING1, 0x00); // Interrupt on RxDone
-	_mode = RHModeRx;
-    }
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
+		int beforeReg = spiRead(RH_RF95_REG_01_OP_MODE);
+		Serial.print("  before write, reg = 0x");
+		Serial.println(beforeReg, HEX);
+
+		Serial.println("-spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_RXCONTINUOUS); spiWrite(RH_RF95_REG_40_DIO_MAPPING1, 0x00) ");
+#endif
+
+		spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_RXCONTINUOUS);
+		spiWrite(RH_RF95_REG_40_DIO_MAPPING1, 0x00); // Interrupt on RxDone
+		_mode = RHModeRx;
+
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
+		int afterReg = spiRead(RH_RF95_REG_01_OP_MODE);
+		Serial.print("  after write, reg = 0x");
+		Serial.println(afterReg, HEX);
+#endif
+	}
 }
 
 void RH_RF95::setModeTx()
 {
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+	Serial.println("RH_RF95 Set mode Tx! ");
+#endif
+
     if (_mode != RHModeTx)
     {
-	spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_TX);
-	spiWrite(RH_RF95_REG_40_DIO_MAPPING1, 0x40); // Interrupt on TxDone
-	_mode = RHModeTx;
-    }
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
+		int beforeReg = spiRead(RH_RF95_REG_01_OP_MODE);
+		Serial.print("  before write, reg = 0x");
+		Serial.println(beforeReg, HEX);
+
+		Serial.println("-spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_TX); spiWrite(RH_RF95_REG_40_DIO_MAPPING1, 0x40) ");
+#endif
+
+		spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_TX);
+		spiWrite(RH_RF95_REG_40_DIO_MAPPING1, 0x40); // Interrupt on TxDone
+		_mode = RHModeTx;
+
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
+		int afterReg = spiRead(RH_RF95_REG_01_OP_MODE);
+		Serial.print("  after write, reg = 0x");
+		Serial.println(afterReg, HEX);
+#endif
+	}
 }
 
 void RH_RF95::setTxPower(int8_t power, bool useRFO)
