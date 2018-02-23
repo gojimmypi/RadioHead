@@ -1103,6 +1103,9 @@ these examples and explanations and extend them to suit your needs.
 #define RH_PLATFORM_ESP32            14						   
 #define RH_PLATFORM_NRF52            15
 
+#define RH_DEBUG_VERBOSE TRUE // set to TRUE for optional serial port debugging messages
+#define RH_DEBUG_SPI_VERBOSE TRUE // set to TRUE for optional serial port debugging messages
+
 ////////////////////////////////////////////////////
 // Select platform automatically, if possible
 #ifndef RH_PLATFORM
