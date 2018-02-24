@@ -6,7 +6,7 @@
 //
 // Author: Mike McCauley (mikem@airspayce.com)
 // Copyright (C) 2014 Mike McCauley
-// $Id: RH_RF95.h,v 1.21 2017/11/06 00:04:08 mikem Exp $
+// $Id: RH_RF95.h,v 1.16 2017/03/04 00:59:41 mikem Exp $
 // 
 
 #ifndef RH_RF95_h
@@ -257,7 +257,7 @@
 /// - the excellent Rocket Scream Mini Ultra Pro with the RFM95W 
 ///   http://www.rocketscream.com/blog/product/mini-ultra-pro-with-radio/
 /// - Lora1276 module from NiceRF http://www.nicerf.com/product_view.aspx?id=99
-/// - Adafruit Feather M0 with RFM95
+/// - Adafruit Feather M0 with RFM95 
 /// - The very fine Talk2 Whisper Node LoRa boards https://wisen.com.au/store/products/whisper-node-lora
 ///   an Arduino compatible board, which include an on-board RFM95/96 LoRa Radio (Semtech SX1276), external antenna, 
 ///   run on 2xAAA batteries and support low power operations. RF95 examples work without modification.
@@ -494,7 +494,7 @@
 /// unless you have the optional Temperature Compensated Crystal Oscillator (TCXO) installed and 
 /// enabled on your radio module. See the refernece manual for more data.
 /// Also https://lowpowerlab.com/forum/rf-range-antennas-rfm69-library/lora-library-experiences-range/15/
-/// and http://www.semtech.com/images/datasheet/an120014-xo-guidance-lora-modulation.pdf
+/// and https://www.semtech.com/uploads/documents/an120014-xo-guidance-lora-modulation.pdf
 /// 
 /// \par Transmitter Power
 ///
@@ -767,6 +767,9 @@ public:
     /// \return SNR of the last received message in dB
     int lastSNR();
 
+    /// Returns the count of the number of timesd the interupt has fired. 
+	int countInterrupt();
+
 protected:
     /// This is a low level function to handle the interrupts for one instance of RH_RF95.
     /// Called automatically by isr*()
@@ -780,6 +783,9 @@ protected:
     void clearRxBuf();
 
 private:
+	// simple interrupt testing
+	static void			handleInterruptTest();
+
     /// Low level interrupt service routine for device connected to interrupt 0
     static void         isr0();
 
