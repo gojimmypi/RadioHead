@@ -466,7 +466,7 @@ bool RH_RF95::sleep()
 #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
 	Serial.println("RH_RF95 Set mode sleep! ");
 #endif
-	if (_mode != RHModeSleep)
+    if (_mode != RHModeSleep)
     {
 #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
 		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
