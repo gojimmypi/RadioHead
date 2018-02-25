@@ -34,8 +34,13 @@ RH_RF95::RH_RF95(uint8_t slaveSelectPin, uint8_t interruptPin, RHGenericSPI& spi
 
 bool RH_RF95::init()
 {
-    if (!RHSPIDriver::init())
-	return false;
+	uint8_t spiReadValue = 0;
+	if (!RHSPIDriver::init()) {
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
+		Serial.println("RHSPIDriver::init failed!");
+#endif
+		return false;
+	}
 
     // Determine the interrupt number that corresponds to the interruptPin
     int interruptNumber = digitalPinToInterrupt(_interruptPin);
@@ -73,22 +78,25 @@ bool RH_RF95::init()
     
     // Set sleep mode, so we can also set LORA mode:
     spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_SLEEP | RH_RF95_LONG_RANGE_MODE);
-    delay(10); // Wait for sleep mode to take over from say, CAD
+	delay(10); // Wait for sleep mode to take over from say, CAD
+	spiReadValue = spiRead(RH_RF95_REG_01_OP_MODE);
     // Check we are in sleep mode, with LORA set
-    if (spiRead(RH_RF95_REG_01_OP_MODE) != (RH_RF95_MODE_SLEEP | RH_RF95_LONG_RANGE_MODE))
+	//spiReadValue = spiRead(RH_RF95_REG_01_OP_MODE);
+    if (spiReadValue != (RH_RF95_MODE_SLEEP | RH_RF95_LONG_RANGE_MODE))
     {
 #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.println("No LoRa Device Found! ");
-		Serial.print("spiRead(RH_RF95_REG_01_OP_MODE) = ");
-		Serial.println(spiRead(RH_RF95_REG_01_OP_MODE), HEX);
+		Serial.print(" - spiRead(RH_RF95_REG_01_OP_MODE) [1]= ");
+		Serial.println(spiReadValue, HEX);
 		Serial.println();
 #endif
+		Serial.println("RHSPIDriver::init failed during set sleep! v3");
 		return false; // No device present?
     }
 	else {
 #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.println("LoRa Device Found!");
-		Serial.print("- spiRead(RH_RF95_REG_01_OP_MODE) = ");
+		Serial.print("- spiRead(RH_RF95_REG_01_OP_MODE) [2] = ");
 		Serial.println(spiRead(RH_RF95_REG_01_OP_MODE), HEX);
 #endif
 	}
@@ -204,24 +212,27 @@ bool RH_RF95::init()
     // RX mode is implmented with RXCONTINUOUS
     // max message data length is 255 - 4 = 251 octets
 
-    setModeIdle();
 
+	setModeIdle();
 
-    // Set up default configuration
-    // No Sync Words in LORA mode.
-    // setModemConfig(Bw125Cr45Sf128); // Radio default
-//    setModemConfig(Bw125Cr48Sf4096); // slow and reliable?
-    // setPreambleLength(8); // Default is 8
-    // An innocuous ISM frequency, same as RF22's
+	// Set up default configuration
+	// No Sync Words in LORA mode.
+	setModemConfig(Bw125Cr45Sf128); // Radio default
+									//    setModemConfig(Bw125Cr48Sf4096); // slow and reliable?
+	setPreambleLength(8); // Default is 8
+						  // An innocuous ISM frequency, same as RF22's
 
 	// set LNA boost
 	// spiWrite(RH_RF95_REG_0C_LNA, spiRead(RH_RF95_REG_0C_LNA) | 0x03);
 
-	setFrequency(433.0);
-    // Lowish power
-    setTxPower(13);
-    Serial.println("RH_RF95::init() complete!");
-
+	//setFrequency(433.0);
+	setFrequency(434.0);
+	// Lowish power
+	setTxPower(13);
+	// RH_PRINT_VERSION();
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
+	Serial.println("RH_RF95::init() complete!");
+#endif
     return true;
 }
 
@@ -287,8 +298,8 @@ void RH_RF95::handleInterrupt()
 			_lastRssi -= 164;
 
 		// We have received a message.
-		validateRxBuf();
-		if (_rxBufValid)
+		validateRxBuf(); // this will increment _rxGood or _rxInvalid as needed
+		if (_rxBufValid) 
 			setModeIdle(); // Got one 
 	}
 	else if (_mode == RHModeTx && irq_flags & RH_RF95_TX_DONE)
@@ -329,8 +340,11 @@ void RH_RF95::isr2()
 // Check whether the latest received message is complete and uncorrupted
 void RH_RF95::validateRxBuf()
 {
-	if (_bufLen < 4)
+	if (_bufLen < 4) {
+		_rxBufValid = false;
+		_rxInvalid++; // TODO make a rcTooShort counter
 		return; // Too short to be a real message
+	}
 		// Extract the 4 headers
 	_rxHeaderTo    = _buf[0];
 	_rxHeaderFrom  = _buf[1];
@@ -343,13 +357,20 @@ void RH_RF95::validateRxBuf()
 		_rxGood++;
 		_rxBufValid = true;
 	}
+	else
+	{
+		_rxInvalid++;
+		_rxBufValid = false;
+	}
 }
 
 bool RH_RF95::available()
 {
 	if (_mode == RHModeTx)
 		return false;
-	setModeRx();
+	if (_mode != RHModeRx) {
+		setModeRx();
+	}
 	return _rxBufValid; // Will be set by the interrupt handler when a good message is received
 }
 
@@ -447,7 +468,7 @@ void RH_RF95::setModeIdle()
     if (_mode != RHModeIdle)
     {
 #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
-		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
+		Serial.println(" - spiRead(RH_RF95_REG_01_OP_MODE) [3] ");
 		int beforeReg = spiRead(RH_RF95_REG_01_OP_MODE);
 		Serial.print("  before write, reg = 0x");
 		Serial.println(beforeReg, HEX);
@@ -459,7 +480,7 @@ void RH_RF95::setModeIdle()
 		_mode = RHModeIdle;
 
 #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
-		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
+		Serial.println(" - spiRead(RH_RF95_REG_01_OP_MODE) [4] ");
 		int afterReg = spiRead(RH_RF95_REG_01_OP_MODE);
 		Serial.print("  after write, reg = 0x");
 		Serial.println(afterReg, HEX);
@@ -475,7 +496,7 @@ bool RH_RF95::sleep()
     if (_mode != RHModeSleep)
     {
 #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
-		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
+		Serial.println(" - spiRead(RH_RF95_REG_01_OP_MODE) [5]");
 		int beforeReg = spiRead(RH_RF95_REG_01_OP_MODE);
 		Serial.print("  before write, reg = 0x");
 		Serial.println(beforeReg, HEX);
@@ -487,7 +508,7 @@ bool RH_RF95::sleep()
 		_mode = RHModeSleep;
 
 #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
-		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
+		Serial.println(" - spiRead(RH_RF95_REG_01_OP_MODE) [6]");
 		int afterReg = spiRead(RH_RF95_REG_01_OP_MODE);
 		Serial.print("  after write, reg = 0x");
 		Serial.println(afterReg, HEX);
@@ -504,7 +525,9 @@ void RH_RF95::setModeRx()
     if (_mode != RHModeRx)
     {
 #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
-		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
+		Serial.print("Current _mode = ");
+		Serial.println(_mode);
+		Serial.println(" - spiRead(RH_RF95_REG_01_OP_MODE) [7]");
 		int beforeReg = spiRead(RH_RF95_REG_01_OP_MODE);
 		Serial.print("  before write, reg = 0x");
 		Serial.println(beforeReg, HEX);
@@ -514,14 +537,14 @@ void RH_RF95::setModeRx()
 
 		spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_RXCONTINUOUS);
 		spiWrite(RH_RF95_REG_40_DIO_MAPPING1, 0x00); // Interrupt on RxDone
-		_mode = RHModeRx;
 
 #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
-		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
+		Serial.println(" - spiRead(RH_RF95_REG_01_OP_MODE) [8]");
 		int afterReg = spiRead(RH_RF95_REG_01_OP_MODE);
 		Serial.print("  after write, reg = 0x");
 		Serial.println(afterReg, HEX);
 #endif
+		_mode = RHModeRx;
 	}
 }
 
@@ -534,24 +557,24 @@ void RH_RF95::setModeTx()
     if (_mode != RHModeTx)
     {
 #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
-		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
+		Serial.println(" - spiRead(RH_RF95_REG_01_OP_MODE) [9]");
 		int beforeReg = spiRead(RH_RF95_REG_01_OP_MODE);
 		Serial.print("  before write, reg = 0x");
 		Serial.println(beforeReg, HEX);
 
-		Serial.println("-spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_TX); spiWrite(RH_RF95_REG_40_DIO_MAPPING1, 0x40) ");
+		Serial.println(" - spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_TX); spiWrite(RH_RF95_REG_40_DIO_MAPPING1, 0x40) ");
 #endif
 
 		spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_TX);
 		spiWrite(RH_RF95_REG_40_DIO_MAPPING1, 0x40); // Interrupt on TxDone
-		_mode = RHModeTx;
 
 #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
-		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
+		Serial.println(" - spiRead(RH_RF95_REG_01_OP_MODE) [10]");
 		int afterReg = spiRead(RH_RF95_REG_01_OP_MODE);
 		Serial.print("  after write, reg = 0x");
 		Serial.println(afterReg, HEX);
 #endif
+		_mode = RHModeTx;
 	}
 }
 
@@ -596,6 +619,66 @@ void RH_RF95::setTxPower(int8_t power, bool useRFO)
 	spiWrite(RH_RF95_REG_09_PA_CONFIG, RH_RF95_PA_SELECT | (power-5));
     }
 }
+
+void RH_RF95::setSpreadingFactor(int sf)
+{
+	if (sf < 6) {
+		sf = 6;
+	}
+	else if (sf > 12) {
+		sf = 12;
+	}
+
+	if (sf == 6) {
+		spiWrite(RH_RF95_REG_31_DETECT_OPTIMIZE, 0xc5);
+		spiWrite(RH_RF95_REG_37_DETECTION_THRESHOLD, 0x0c);
+	}
+	else {
+		spiWrite(RH_RF95_REG_31_DETECT_OPTIMIZE, 0xc3);
+		spiWrite(RH_RF95_REG_37_DETECTION_THRESHOLD, 0x0a);
+	}
+
+	spiWrite(RH_RF95_REG_1E_MODEM_CONFIG2, (spiRead(RH_RF95_REG_1E_MODEM_CONFIG2) & 0x0f) | ((sf << 4) & 0xf0));
+}
+
+void RH_RF95::setSignalBandwidth(long sbw)
+{
+	int bw;
+
+	if (sbw <= 7.8E3) {
+		bw = 0;
+	}
+	else if (sbw <= 10.4E3) {
+		bw = 1;
+	}
+	else if (sbw <= 15.6E3) {
+		bw = 2;
+	}
+	else if (sbw <= 20.8E3) {
+		bw = 3;
+	}
+	else if (sbw <= 31.25E3) {
+		bw = 4;
+	}
+	else if (sbw <= 41.7E3) {
+		bw = 5;
+	}
+	else if (sbw <= 62.5E3) {
+		bw = 6;
+	}
+	else if (sbw <= 125E3) {
+		bw = 7;
+	}
+	else if (sbw <= 250E3) {
+		bw = 8;
+	}
+	else /*if (sbw <= 250E3)*/ {
+		bw = 9;
+	}
+
+	spiWrite(RH_RF95_REG_1D_MODEM_CONFIG1, (spiRead(RH_RF95_REG_1D_MODEM_CONFIG1) & 0x0f) | (bw << 4));
+}
+
 
 // Sets registers from a canned modem configuration structure
 void RH_RF95::setModemRegisters(const ModemConfig* config)

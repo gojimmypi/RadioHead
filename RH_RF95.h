@@ -14,7 +14,7 @@
 #define RH_RF95_h
 
 #include <RHSPIDriver.h>
-
+#include <RHGenericDriver.h>
 // This is the maximum number of interrupts the driver can support
 // Most Arduinos can handle 2, Megas can handle more
 #define RH_RF95_NUM_INTERRUPTS 3
@@ -691,6 +691,12 @@ public:
     /// different frequency ranges, and setting a frequency outside that range of your radio will probably not work
     /// \return true if the selected frquency centre is within range
     bool           setFrequency(float centre);
+
+	/// set Speadinng Factor
+	void		   setSpreadingFactor(int sf);
+
+	/// set Signal Bandwidth
+	void           setSignalBandwidth(long sbw);
 
     /// If current mode is Rx or Tx changes it to Idle. If the transmitter or receiver is running, 
     /// disables them.
