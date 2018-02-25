@@ -1103,8 +1103,11 @@ these examples and explanations and extend them to suit your needs.
 #define RH_PLATFORM_ESP32            14						   
 #define RH_PLATFORM_NRF52            15
 
-#define RH_DEBUG_VERBOSE TRUE // set to TRUE for optional serial port debugging messages
-#define RH_DEBUG_SPI_VERBOSE TRUE // set to TRUE for optional serial port debugging messages
+// serial debug verbosity; 0 = no debug messages; 
+// set to value > 1 for optional serial port debugging messages
+// (higher number for greater verbosity)
+#define RH_DEBUG_VERBOSE 0     //  general debug messages
+#define RH_DEBUG_SPI_VERBOSE 0 //  SPI-specific debug messages
 
 ////////////////////////////////////////////////////
 // Select platform automatically, if possible
@@ -1313,6 +1316,8 @@ these examples and explanations and extend them to suit your needs.
  #define YIELD yield();
 #elif (RH_PLATFORM == RH_PLATFORM_ESP8266)
 // ESP8266 also has it
+ #define YIELD yield();
+#elif (RH_PLATFORM == RH_PLATFORM_ESP32)
  #define YIELD yield();
 #else
  #define YIELD
