@@ -36,7 +36,7 @@ RHHardwareSPI::RHHardwareSPI(Frequency frequency, BitOrder bitOrder, DataMode da
     :
     RHGenericSPI(frequency, bitOrder, dataMode)
 {
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 	Serial.println();
 	Serial.println(" -RHHardwareSPI init. ");
 #endif
@@ -45,7 +45,7 @@ RHHardwareSPI::RHHardwareSPI(Frequency frequency, BitOrder bitOrder, DataMode da
 uint8_t RHHardwareSPI::transfer(uint8_t data) 
 {
    uint8_t r = SPI.transfer(data);
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_SPI_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_SPI_VERBOSE  >= 1)
    Serial.print("-SPI TX: "); Serial.print(data, HEX); Serial.print(" RX: "); Serial.println(r, HEX);
 #endif
    return r;
@@ -53,7 +53,7 @@ uint8_t RHHardwareSPI::transfer(uint8_t data)
 
 void RHHardwareSPI::attachInterrupt() 
 {
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_SPI_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_SPI_VERBOSE  >= 1)
 	Serial.println("RHHardwareSPI::attachInterrupt() ");
 #endif
 
@@ -91,7 +91,7 @@ void RHHardwareSPI::begin()
     // Arduino Due in 1.5.5 has its own BitOrder :-(
     // So too does Arduino Zero
     ::BitOrder bitOrder;
-  #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_SPI_VERBOSE == TRUE)
+  #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_SPI_VERBOSE  >= 1)
 	Serial.println("special bit order ");
   #endif
 #else
@@ -100,7 +100,7 @@ void RHHardwareSPI::begin()
 
    if (_bitOrder == BitOrderLSBFirst) 
    {
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_SPI_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_SPI_VERBOSE  >= 1)
 	   Serial.println("LSBFIRST ");
 #endif
 	   bitOrder = LSBFIRST;
@@ -123,7 +123,7 @@ void RHHardwareSPI::begin()
     else
 		dataMode = SPI_MODE0;
 
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_SPI_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_SPI_VERBOSE  >= 1)
 	Serial.print(" dataMode = ");
 	Serial.println(dataMode, HEX);
 #endif
@@ -131,7 +131,7 @@ void RHHardwareSPI::begin()
     // Save the settings for use in transactions
    _settings = SPISettings(frequency, bitOrder, dataMode);
 
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
    Serial.println("--RHHardwareSPI  SPI.Begin() ");
 #endif
 

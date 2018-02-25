@@ -8,6 +8,7 @@
 // Copyright (C) 2014 Mike McCauley
 // $Id: RH_RF95.h,v 1.16 2017/03/04 00:59:41 mikem Exp $
 // 
+//
 
 #ifndef RH_RF95_h
 #define RH_RF95_h
@@ -89,7 +90,7 @@
 #define RH_RF95_REG_29_FEI_MID                             0x29
 #define RH_RF95_REG_2A_FEI_LSB                             0x2a
 #define RH_RF95_REG_2C_RSSI_WIDEBAND                       0x2c
-#define RH_RF95_REG_31_DETECT_OPTIMIZ                      0x31
+#define RH_RF95_REG_31_DETECT_OPTIMIZE                     0x31
 #define RH_RF95_REG_33_INVERT_IQ                           0x33
 #define RH_RF95_REG_37_DETECTION_THRESHOLD                 0x37
 #define RH_RF95_REG_39_SYNC_WORD                           0x39
@@ -689,7 +690,7 @@ public:
     /// \param[in] centre Frequency in MHz. 137.0 to 1020.0. Caution: RFM95/96/97/98 comes in several
     /// different frequency ranges, and setting a frequency outside that range of your radio will probably not work
     /// \return true if the selected frquency centre is within range
-    bool        setFrequency(float centre);
+    bool           setFrequency(float centre);
 
     /// If current mode is Rx or Tx changes it to Idle. If the transmitter or receiver is running, 
     /// disables them.

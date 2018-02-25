@@ -17,7 +17,7 @@ bool RHSPIDriver::init()
     // start the SPI library with the default speeds etc:
     // On Arduino Due this defaults to SPI1 on the central group of 6 SPI pins
 
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 	Serial.print(" -RHSPIDriver::init. SPI.Begin SS = ");
 	Serial.println(_slaveSelectPin);
 #endif

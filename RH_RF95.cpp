@@ -39,27 +39,27 @@ bool RH_RF95::init()
 
     // Determine the interrupt number that corresponds to the interruptPin
     int interruptNumber = digitalPinToInterrupt(_interruptPin);
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
     Serial.print("RH_RF95 interruptNumber=");
     Serial.println(interruptNumber);
 #endif
 
 
     if (interruptNumber == NOT_AN_INTERRUPT) {
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.println("RH_RF95 NOT_AN_INTERRUPT!");
 #endif
 		return false;
 	}
 #ifdef RH_ATTACHINTERRUPT_TAKES_PIN_NUMBER
     interruptNumber = _interruptPin;
-  #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+  #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
     Serial.print("RH_ATTACHINTERRUPT_TAKES_PIN_NUMBER is defined!");
     Serial.print("RH_RF95 interruptNumber=");
     Serial.println(interruptNumber);
   #endif
 #else
-  #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+  #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 	Serial.println("RH_ATTACHINTERRUPT_TAKES_PIN_NUMBER is NOT defined (typically only Arduino)");
 	Serial.print("RH_RF95 interruptNumber=");
 	Serial.println(interruptNumber);
@@ -77,7 +77,7 @@ bool RH_RF95::init()
     // Check we are in sleep mode, with LORA set
     if (spiRead(RH_RF95_REG_01_OP_MODE) != (RH_RF95_MODE_SLEEP | RH_RF95_LONG_RANGE_MODE))
     {
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.println("No LoRa Device Found! ");
 		Serial.print("spiRead(RH_RF95_REG_01_OP_MODE) = ");
 		Serial.println(spiRead(RH_RF95_REG_01_OP_MODE), HEX);
@@ -86,14 +86,14 @@ bool RH_RF95::init()
 		return false; // No device present?
     }
 	else {
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.println("LoRa Device Found!");
 		Serial.print("- spiRead(RH_RF95_REG_01_OP_MODE) = ");
 		Serial.println(spiRead(RH_RF95_REG_01_OP_MODE), HEX);
 #endif
 	}
 
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
     Serial.print("RH_RF95 pinMode _interruptPin=");
     Serial.println(_interruptPin);
 #endif
@@ -117,7 +117,7 @@ bool RH_RF95::init()
 	else
 	    return false; // Too many devices, not enough interrupt vectors
     }
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
     Serial.print("RH_RF95 _myInterruptIndex = ");
     Serial.println(_myInterruptIndex);
 #endif
@@ -163,7 +163,7 @@ bool RH_RF95::init()
 		//		ESP_INTR_ENABLE(interruptNumber);
 //		Serial.print(" gpio_intr_enable:");
 //		Serial.println(interruptNumber);
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.print("RH_RF95 isr0 attachInterrupt=");
 		Serial.println(interruptNumber);
 #endif
@@ -171,7 +171,7 @@ bool RH_RF95::init()
 	else if (_myInterruptIndex == 1)
 	{
 		attachInterrupt(interruptNumber, isr1, RISING);
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.print("RH_RF95 isr1 attachInterrupt=");
 		Serial.println(interruptNumber);
 #endif
@@ -179,14 +179,14 @@ bool RH_RF95::init()
 	else if (_myInterruptIndex == 2)
 	{
 		attachInterrupt(interruptNumber, isr2, RISING);
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.print("RH_RF95 isr2 attachInterrupt=");
 		Serial.println(interruptNumber);
 #endif
 	}
 	else
 	{
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.println("RH_RF95 ERROR not enough interrupt vectors!");
 #endif
 		return false; // Too many devices, not enough interrupt vectors
@@ -213,7 +213,11 @@ bool RH_RF95::init()
 //    setModemConfig(Bw125Cr48Sf4096); // slow and reliable?
     // setPreambleLength(8); // Default is 8
     // An innocuous ISM frequency, same as RF22's
-    setFrequency(433.0);
+
+	// set LNA boost
+	// spiWrite(RH_RF95_REG_0C_LNA, spiRead(RH_RF95_REG_0C_LNA) | 0x03);
+
+	setFrequency(433.0);
     // Lowish power
     setTxPower(13);
     Serial.println("RH_RF95::init() complete!");
@@ -227,9 +231,11 @@ bool RH_RF95::init()
 // connnected to the processor.
 // We use this to get RxDone and TxDone interrupts
 
-static DRAM_ATTR int _countInterrupt = 0;
+//static DRAM_ATTR 
+int _countInterrupt = 0;
 
-IRAM_ATTR int RH_RF95::countInterrupt() {
+// IRAM_ATTR // TODO is this needed for ESP32?
+int RH_RF95::countInterrupt() {
 	return _countInterrupt;
 }
 
@@ -434,13 +440,13 @@ bool RH_RF95::setFrequency(float centre)
 
 void RH_RF95::setModeIdle()
 {
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 	Serial.println("RH_RF95 Set mode idle! ");
 #endif
 
     if (_mode != RHModeIdle)
     {
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
 		int beforeReg = spiRead(RH_RF95_REG_01_OP_MODE);
 		Serial.print("  before write, reg = 0x");
@@ -452,7 +458,7 @@ void RH_RF95::setModeIdle()
 		spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_STDBY);
 		_mode = RHModeIdle;
 
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
 		int afterReg = spiRead(RH_RF95_REG_01_OP_MODE);
 		Serial.print("  after write, reg = 0x");
@@ -463,12 +469,12 @@ void RH_RF95::setModeIdle()
 
 bool RH_RF95::sleep()
 {
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 	Serial.println("RH_RF95 Set mode sleep! ");
 #endif
     if (_mode != RHModeSleep)
     {
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
 		int beforeReg = spiRead(RH_RF95_REG_01_OP_MODE);
 		Serial.print("  before write, reg = 0x");
@@ -480,7 +486,7 @@ bool RH_RF95::sleep()
 		spiWrite(RH_RF95_REG_01_OP_MODE, RH_RF95_MODE_SLEEP);
 		_mode = RHModeSleep;
 
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
 		int afterReg = spiRead(RH_RF95_REG_01_OP_MODE);
 		Serial.print("  after write, reg = 0x");
@@ -492,12 +498,12 @@ bool RH_RF95::sleep()
 
 void RH_RF95::setModeRx()
 {
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 	Serial.println("RH_RF95 Set mode Rx! ");
 #endif
     if (_mode != RHModeRx)
     {
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
 		int beforeReg = spiRead(RH_RF95_REG_01_OP_MODE);
 		Serial.print("  before write, reg = 0x");
@@ -510,7 +516,7 @@ void RH_RF95::setModeRx()
 		spiWrite(RH_RF95_REG_40_DIO_MAPPING1, 0x00); // Interrupt on RxDone
 		_mode = RHModeRx;
 
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
 		int afterReg = spiRead(RH_RF95_REG_01_OP_MODE);
 		Serial.print("  after write, reg = 0x");
@@ -521,13 +527,13 @@ void RH_RF95::setModeRx()
 
 void RH_RF95::setModeTx()
 {
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 	Serial.println("RH_RF95 Set mode Tx! ");
 #endif
 
     if (_mode != RHModeTx)
     {
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
 		int beforeReg = spiRead(RH_RF95_REG_01_OP_MODE);
 		Serial.print("  before write, reg = 0x");
@@ -540,7 +546,7 @@ void RH_RF95::setModeTx()
 		spiWrite(RH_RF95_REG_40_DIO_MAPPING1, 0x40); // Interrupt on TxDone
 		_mode = RHModeTx;
 
-#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE == TRUE)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 		Serial.println("-spiRead(RH_RF95_REG_01_OP_MODE)");
 		int afterReg = spiRead(RH_RF95_REG_01_OP_MODE);
 		Serial.print("  after write, reg = 0x");
