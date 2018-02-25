@@ -247,6 +247,12 @@ public:
     /// \return The number of packets successfully transmitted
     virtual uint16_t       txGood();
 
+
+	/// Returns the count of the number of 
+	/// received packets that faild validation
+	/// \return The number of good packets received.
+	virtual uint16_t       rxInvalid();
+
 protected:
 
     /// The current transport operating mode
@@ -288,7 +294,10 @@ protected:
     /// Count of the number of bad messages (eg bad checksum etc) received
     volatile uint16_t   _rxBad;
 
-    /// Count of the number of successfully transmitted messaged
+	/// Count of the number of invalid messages (eg failed validateRxBuf) received
+	volatile uint16_t   _rxInvalid;
+
+	/// Count of the number of successfully transmitted messaged
     volatile uint16_t   _rxGood;
 
     /// Count of the number of bad messages (correct checksum etc) received
