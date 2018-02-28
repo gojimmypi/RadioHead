@@ -15,12 +15,45 @@ uint8_t RH_RF95::_interruptCount = 0; // Index into _deviceForInterrupt for next
 // Stored in flash (program) memory to save SRAM
 PROGMEM static const RH_RF95::ModemConfig MODEM_CONFIG_TABLE[] =
 {
-    //  1d,     1e,      26
-    { 0x72,   0x74,    0x04}, // Bw125Cr45Sf128 (the chip default), AGC enabled
-    { 0x92,   0x74,    0x04}, // Bw500Cr45Sf128, AGC enabled
-    { 0x48,   0x94,    0x04}, // Bw31_25Cr48Sf512, AGC enabled
-    { 0x78,   0xc4,    0x0c}, // Bw125Cr48Sf4096, AGC enabled
+	// ** IMPORTANT **  Receiver and Transmitter config must match!
+	//
+    // 1d,   1e,      26   
+    //---   -----   -----
+	// Bw125Cr45Sf128 (the chip default)
+	{ 
+	0x72,					// 125 kHz, Error coding rate = 4/5, Explicit Header mode
+			0x74,			// sf = 7 @ 128 chips / symbol, normal mode, CRC enable, RX Time-Out MSB=0
+					0x04	// no Low Data Rate Optimize, AGC enabled
+	},	
     
+	// Bw500Cr45Sf128 -- fast rate (shorter range); note special case of sf=6, so using sf=7 here
+    { 
+	0x92,					// 500 kHz, Error coding rate = 4/5, Explicit Header mode
+			0x74,			// sf = 7 @ 128 chips / symbol, normal mode, CRC enable, RX Time-Out MSB=0
+					 0x04	// no Low Data Rate Optimize, AGC enabled
+	}, 
+
+	// Bw31_25Cr48Sf512
+    { 
+	0x48,					// 31.25 kHz, Error coding rate = 4/8, Explicit Header mode
+	        0x94,			// sf = 9 @ 512 chips / symbol, normal mode, CRC enable, RX Time-Out MSB=0
+					0x04	// no Low Data Rate Optimize, AGC enabled
+	},	
+
+	// Bw125Cr48Sf4096
+	{ 
+	0x78,					// 125 kHz, Error coding rate = 4/8, Explicit Header mode
+	        0xc4,			// sf = 12 @ 4096 chips / symbol, normal mode, CRC enable, RX Time-Out MSB=0
+			        0x0c	// Low Data Rate Optimize, AGC enabled
+	},  
+    
+	// Bw78Cr48Sf4096 -- note this was observed to take as long as 30 seconds to send 20 characters! (but in theory should give longest range)
+	{
+	0x08,					// 7.8 kHz, Error coding rate = 4/8, Explicit Header mode
+			0xc4,			// sf = 12 @ 4096 chips / symbol, normal mode, CRC enable, RX Time-Out MSB=0
+					0x0c	// Low Data Rate Optimize, AGC enabled
+	},
+
 };
 
 RH_RF95::RH_RF95(uint8_t slaveSelectPin, uint8_t interruptPin, RHGenericSPI& spi)
@@ -620,6 +653,32 @@ void RH_RF95::setTxPower(int8_t power, bool useRFO)
     }
 }
 
+// See page 27 of datasheet:
+//
+//   SpreadingFactor    Spreading Factor   LoRa Demodulator
+//  (RegModulationCfg)  (Chips / symbol)        SNR
+//--------------------------------------------------------- 
+//			 6				  64			- 5 dB
+//			 7				 128			- 7.5 dB
+//			 8				 256			- 10 dB
+//			 9				 512			- 12.5 dB
+//			10				1024			- 15 dB
+//			11				2048			- 17.5 dB
+//			12				4096			- 20 dB
+//
+// Note that the spreading factor, SpreadingFactor, must be known in advance on both transmit and receive sides of the link
+// as different spreading factors are orthogonal to each other.Note also the resulting signal to noise ratio(SNR) required at
+// the receiver input.It is the capability to receive signals with negative SNR that increases the sensitivity, so link budget and
+// range, of the LoRa receiver.
+//
+// Spreading Factor 6
+// SF = 6 Is a special use case for the highest data rate transmission possible with the LoRa modem.To this end several
+// settings must be activated in the SX1276 / 77 / 78 / 79 registers when it is in use.These settings are only valid for SF6 and
+// should be set back to their default values for other spreading factors :
+//  - Set SpreadingFactor = 6 in RegModemConfig2
+//  - The header must be set to Implicit mode.
+//  - Set the bit field DetectionOptimize of register RegLoRaDetectOptimize to value "0b101".
+//  - Write 0x0C in the register RegDetectionThreshold.
 void RH_RF95::setSpreadingFactor(int sf)
 {
 	if (sf < 6) {
@@ -641,6 +700,20 @@ void RH_RF95::setSpreadingFactor(int sf)
 	spiWrite(RH_RF95_REG_1E_MODEM_CONFIG2, (spiRead(RH_RF95_REG_1E_MODEM_CONFIG2) & 0x0f) | ((sf << 4) & 0xf0));
 }
 
+
+// get Spreading Factor resgister value
+uint8_t RH_RF95::getSpreadingFactorReg() {
+	return spiRead(RH_RF95_REG_1E_MODEM_CONFIG2) >> 4; // bits 7-4 
+}
+
+// get Spreading Factor
+int RH_RF95::getSpreadingFactor() {
+	return (1 << getSpreadingFactorReg());
+}
+
+// See page 28:
+// An increase in signal bandwidth permits the use of a higher effective data rate, thus reducing transmission time at 
+// the expense of reduced sensitivity improvement.
 void RH_RF95::setSignalBandwidth(long sbw)
 {
 	int bw;
@@ -672,11 +745,57 @@ void RH_RF95::setSignalBandwidth(long sbw)
 	else if (sbw <= 250E3) {
 		bw = 8;
 	}
-	else /*if (sbw <= 250E3)*/ {
-		bw = 9;
+	else /*if (sbw <= 500E3)*/ {
+		bw = 9; // max bandwidth is 9; 500 kHz
 	}
 
 	spiWrite(RH_RF95_REG_1D_MODEM_CONFIG1, (spiRead(RH_RF95_REG_1D_MODEM_CONFIG1) & 0x0f) | (bw << 4));
+}
+
+// get signal bandwidth register value
+uint8_t RH_RF95::getSignalBandwidthReg() {
+	return spiRead(RH_RF95_REG_1D_MODEM_CONFIG1) >> 4; // bits 7-4 
+}
+
+// get signal bandwidth, in MHz
+long RH_RF95::getSignalBandwidth() {
+	uint8_t bw = getSignalBandwidthReg();
+	long sbw = -1;
+
+	if (bw == 0) {
+		sbw = 7.8E3;
+	}
+	else if (bw == 1) {
+		sbw = 10.4E3;
+	}
+	else if (bw == 2) {
+		sbw = 15.6E3;
+	}
+	else if (bw == 3) {
+		sbw = 20.8E3;
+	}
+	else if (bw == 4) {
+		sbw = 31.25E3;
+	}
+	else if (bw == 5) {
+		sbw = 41.7E3;
+	}
+	else if (bw == 6) {
+		sbw = 62.5E3;
+	}
+	else if (bw == 7) {
+		sbw = 125E3;
+	}
+	else if (bw == 8) {
+		sbw = 250E3;
+	}
+	else if (bw == 9) {
+		sbw = 500E3;
+	}
+	else {
+		sbw = -bw;
+	}
+	return sbw;
 }
 
 
@@ -724,6 +843,13 @@ bool RH_RF95::isChannelActive()
     return _cad;
 }
 
+// see Semtech page 81 section 5.3.1. Crystal Oscillator
+// Optionally, an external clock can be used to replace the crystal oscillator.This typically takes the form of 
+// a tight tolerance temperature compensated crystal oscillator(TCXO).When using an external clock source the bit 
+// TcxoInputOn of registerRegTcxo should be set to 1 and the external clock has to be provided on XTA(pin 5).
+// XTB(pin 6) should be left open.
+//
+// enable TXCO (Temperature Compensated Crystal Oscillator)
 void RH_RF95::enableTCXO()
 {
     while ((spiRead(RH_RF95_REG_4B_TCXO) & RH_RF95_TCXO_TCXO_INPUT_ON) != RH_RF95_TCXO_TCXO_INPUT_ON)
@@ -762,6 +888,7 @@ int RH_RF95::frequencyError()
     return error;
 }
 
+// return the last observed signal to noise ratio (SNR value)
 int RH_RF95::lastSNR()
 {
     return _lastSNR;

@@ -589,10 +589,11 @@ public:
     /// deal with the long transmission times.
     typedef enum
     {
-	Bw125Cr45Sf128 = 0,	   ///< Bw = 125 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on. Default medium range
-	Bw500Cr45Sf128,	           ///< Bw = 500 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on. Fast+short range
-	Bw31_25Cr48Sf512,	   ///< Bw = 31.25 kHz, Cr = 4/8, Sf = 512chips/symbol, CRC on. Slow+long range
-	Bw125Cr48Sf4096,           ///< Bw = 125 kHz, Cr = 4/8, Sf = 4096chips/symbol, CRC on. Slow+long range
+	Bw125Cr45Sf128 = 0,	    ///< Bw = 125 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on. Default medium range
+	Bw500Cr45Sf128,	        ///< Bw = 500 kHz, Cr = 4/5, Sf = 128chips/symbol, CRC on. Fast+short range
+	Bw31_25Cr48Sf512,	    ///< Bw = 31.25 kHz, Cr = 4/8, Sf = 512chips/symbol, CRC on. Slow+long range
+	Bw125Cr48Sf4096,        ///< Bw = 125 kHz, Cr = 4/8, Sf = 4096chips/symbol, CRC on. Slow+long range
+	Bw78Cr48Sf4096,			///< Bw = 7.8 kHz, Cr = 4/8, Sf = 4096chips/symbol, CRC on. Slowest+long range
     } ModemConfigChoice;
 
     /// Constructor. You can have multiple instances, but each instance must have its own
@@ -694,11 +695,24 @@ public:
 
 	/// set Speadinng Factor
 	void		   setSpreadingFactor(int sf);
+	
+	/// get Speadinng Factor rsgoter value
+	uint8_t		   getSpreadingFactorReg();
+
+	/// get Speadinng Factor (chips / symbol)
+	int			   getSpreadingFactor();
 
 	/// set Signal Bandwidth
 	void           setSignalBandwidth(long sbw);
 
-    /// If current mode is Rx or Tx changes it to Idle. If the transmitter or receiver is running, 
+	/// get Signal Bandwidth
+	long	       getSignalBandwidth(); 
+
+
+	/// get Signal Bandwidth register value
+	uint8_t		   getSignalBandwidthReg();
+
+	/// If current mode is Rx or Tx changes it to Idle. If the transmitter or receiver is running, 
     /// disables them.
     void           setModeIdle();
 
@@ -729,7 +743,7 @@ public:
     /// valid values are from -1 to 14.
     /// \param[in] useRFO If true, enables the use of the RFO transmitter pins instead of
     /// the PA_BOOST pin (false). Choose the correct setting for your module.
-    void           setTxPower(int8_t power, bool useRFO = false);
+    void            setTxPower(int8_t power, bool useRFO = false);
 
     /// Sets the radio into low-power sleep mode.
     /// If successful, the transport will stay in sleep mode until woken by 
@@ -756,7 +770,7 @@ public:
     /// Caution, this function has not been tested by us.
     /// Caution, the TCXO model radios are not low power when in sleep (consuming
     /// about ~600 uA, reported by Phang Moh Lim.<br>
-    void enableTCXO();
+    void			enableTCXO();
 
     /// Returns the last measured frequency error.
     /// The LoRa receiver estimates the frequency offset between the receiver centre frequency
@@ -767,15 +781,16 @@ public:
     /// \return The estimated centre frequency offset in Hz of the last received message. 
     /// If the modem bandwidth selector in 
     /// register RH_RF95_REG_1D_MODEM_CONFIG1 is invalid, returns 0.
-    int frequencyError();
+    int				frequencyError();
 
     /// Returns the Signal-to-noise ratio (SNR) of the last received message, as measured
     /// by the receiver.
     /// \return SNR of the last received message in dB
-    int lastSNR();
+    int				lastSNR();
 
-    /// Returns the count of the number of timesd the interupt has fired. 
-	int countInterrupt();
+    /// Returns the count of the number of times the interupt has fired. 
+	int				countInterrupt();
+
 
 protected:
     /// This is a low level function to handle the interrupts for one instance of RH_RF95.
@@ -784,10 +799,10 @@ protected:
     void           handleInterrupt();
 
     /// Examine the revceive buffer to determine whether the message is for this node
-    void validateRxBuf();
+    void			validateRxBuf();
 
     /// Clear our local receive buffer
-    void clearRxBuf();
+    void			clearRxBuf();
 
 private:
 	// simple interrupt testing
