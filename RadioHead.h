@@ -1085,6 +1085,7 @@ these examples and explanations and extend them to suit your needs.
 // Official version numbers are maintained automatically by Makefile:
 #define RH_VERSION_MAJOR 1
 #define RH_VERSION_MINOR 83
+#define RH_VERSION_STEP 1
 
 // Symbolic names for currently supported platform types
 #define RH_PLATFORM_ARDUINO          1
