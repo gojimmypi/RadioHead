@@ -1,8 +1,8 @@
-// RHHardwareSPI.h
+// RHHardwareSPI.cpp
 // Author: Mike McCauley (mikem@airspayce.com)
 // Copyright (C) 2011 Mike McCauley
 // Contributed by Joanna Rutkowska
-// $Id: RHHardwareSPI.cpp,v 1.16 2016/07/07 00:02:53 mikem Exp $
+// $Id: RHHardwareSPI.cpp,v 1.20x 2018/02/22 23:57:18 gojimmypi $
 
 #include <RHHardwareSPI.h>
 
@@ -22,7 +22,7 @@ HardwareSPI SPI(1);
 // Arduino Due has default SPI pins on central SPI headers, and not on 10, 11, 12, 13
 // as per other Arduinos
 // http://21stdigitalhome.blogspot.com.au/2013/02/arduino-due-hardware-spi.html
-#if defined (__arm__) && !defined(CORE_TEENSY) && !defined(SPI_CLOCK_DIV16)
+#if defined (__arm__) && !defined(CORE_TEENSY) && !defined(SPI_CLOCK_DIV16) && !defined(RH_PLATFORM_NRF52)
  // Arduino Due in 1.5.5 has no definitions for SPI dividers
  // SPI clock divider is based on MCK of 84MHz  
  #define SPI_CLOCK_DIV16 (VARIANT_MCK/84000000) // 1MHz
@@ -36,23 +36,36 @@ RHHardwareSPI::RHHardwareSPI(Frequency frequency, BitOrder bitOrder, DataMode da
     :
     RHGenericSPI(frequency, bitOrder, dataMode)
 {
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
+	Serial.println();
+	Serial.println(" -RHHardwareSPI init. ");
+#endif
 }
 
 uint8_t RHHardwareSPI::transfer(uint8_t data) 
 {
-    return SPI.transfer(data);
+   uint8_t r = SPI.transfer(data);
+   // YIELD // TODO, why does yield() cause a stack overflow when not commented out? (corrupted / non-potected IRQ memory use?)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_SPI_VERBOSE  >= 1)
+   Serial.print(" - SPI HW TX: "); Serial.print(data, HEX); Serial.print(" RX: "); Serial.println(r, HEX);
+#endif
+   return r;
 }
 
 void RHHardwareSPI::attachInterrupt() 
 {
-#if (RH_PLATFORM == RH_PLATFORM_ARDUINO)
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_SPI_VERBOSE  >= 1)
+	Serial.println("RHHardwareSPI::attachInterrupt() ");
+#endif
+
+#if (RH_PLATFORM == RH_PLATFORM_ARDUINO || RH_PLATFORM == RH_PLATFORM_NRF52)
     SPI.attachInterrupt();
 #endif
 }
 
 void RHHardwareSPI::detachInterrupt() 
 {
-#if (RH_PLATFORM == RH_PLATFORM_ARDUINO)
+#if (RH_PLATFORM == RH_PLATFORM_ARDUINO || RH_PLATFORM == RH_PLATFORM_NRF52)
     SPI.detachInterrupt();
 #endif
 }
@@ -60,7 +73,77 @@ void RHHardwareSPI::detachInterrupt()
 void RHHardwareSPI::begin() 
 {
     // Sigh: there are no common symbols for some of these SPI options across all platforms
-#if (RH_PLATFORM == RH_PLATFORM_ARDUINO) || (RH_PLATFORM == RH_PLATFORM_UNO32) || (RH_PLATFORM == RH_PLATFORM_CHIPKIT_CORE)
+#if defined(SPI_HAS_TRANSACTION)
+    // Perhaps this is a uniform interface for SPI?
+    // Currently Teensy and ESP32 only
+   uint32_t frequency;
+   if (_frequency == Frequency16MHz)
+       frequency = 16000000;
+   else if (_frequency == Frequency8MHz)
+       frequency = 8000000;
+   else if (_frequency == Frequency4MHz)
+       frequency = 4000000;
+   else if (_frequency == Frequency2MHz)
+       frequency = 2000000;
+   else
+       frequency = 1000000;
+
+#if ((RH_PLATFORM == RH_PLATFORM_ARDUINO) && defined (__arm__) && (defined(ARDUINO_SAM_DUE) || defined(ARDUINO_ARCH_SAMD))) || defined(ARDUINO_ARCH_NRF52)
+    // Arduino Due in 1.5.5 has its own BitOrder :-(
+    // So too does Arduino Zero
+    ::BitOrder bitOrder;
+  #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_SPI_VERBOSE  >= 1)
+	Serial.println("special bit order ");
+  #endif
+#else
+    uint8_t bitOrder;
+  #endif
+
+   if (_bitOrder == BitOrderLSBFirst) 
+   {
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_SPI_VERBOSE  >= 1)
+	   Serial.println("LSBFIRST ");
+#endif
+	   bitOrder = LSBFIRST;
+	} 
+	else 
+	{
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_SPI_VERBOSE  >= 1)
+		Serial.println("SPI BEGIN MSBFIRST ");
+#endif
+		bitOrder = MSBFIRST;
+	}
+    uint8_t dataMode;
+    if (_dataMode == DataMode0)
+		dataMode = SPI_MODE0;
+    else if (_dataMode == DataMode1)
+		dataMode = SPI_MODE1;
+    else if (_dataMode == DataMode2)
+		dataMode = SPI_MODE2;
+    else if (_dataMode == DataMode3)
+		dataMode = SPI_MODE3;
+    else
+		dataMode = SPI_MODE0;
+
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_SPI_VERBOSE  >= 1)
+	Serial.print(" dataMode = ");
+	Serial.println(dataMode, HEX);
+#endif
+
+    // Save the settings for use in transactions
+   _settings = SPISettings(frequency, bitOrder, dataMode);
+
+#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
+   Serial.println("--RHHardwareSPI  SPI.Begin() ");
+#endif
+
+   SPI.begin();
+
+   //Serial.println("SPI has transactions");
+ #else // SPI_HAS_TRANSACTION 
+    
+    // Sigh: there are no common symbols for some of these SPI options across all platforms
+#if (RH_PLATFORM == RH_PLATFORM_ARDUINO) || (RH_PLATFORM == RH_PLATFORM_UNO32) || (RH_PLATFORM == RH_PLATFORM_CHIPKIT_CORE || RH_PLATFORM == RH_PLATFORM_NRF52)
     uint8_t dataMode;
     if (_dataMode == DataMode0)
 	dataMode = SPI_MODE0;
@@ -76,7 +159,7 @@ void RHHardwareSPI::begin()
     // Temporary work-around due to problem where avr_emulation.h does not work properly for the setDataMode() cal
     SPCR &= ~SPI_MODE_MASK;
 #else
- #if (RH_PLATFORM == RH_PLATFORM_ARDUINO) && defined (__arm__) && defined(ARDUINO_ARCH_SAMD)
+ #if ((RH_PLATFORM == RH_PLATFORM_ARDUINO) && defined (__arm__) && defined(ARDUINO_ARCH_SAMD)) || defined(ARDUINO_ARCH_NRF52)
     // Zero requires begin() before anything else :-)
     SPI.begin();
  #endif
@@ -84,7 +167,7 @@ void RHHardwareSPI::begin()
     SPI.setDataMode(dataMode);
 #endif
 
-#if (RH_PLATFORM == RH_PLATFORM_ARDUINO) && defined (__arm__) && (defined(ARDUINO_SAM_DUE) || defined(ARDUINO_ARCH_SAMD))
+#if ((RH_PLATFORM == RH_PLATFORM_ARDUINO) && defined (__arm__) && (defined(ARDUINO_SAM_DUE) || defined(ARDUINO_ARCH_SAMD))) || defined(ARDUINO_ARCH_NRF52)
     // Arduino Due in 1.5.5 has its own BitOrder :-(
     // So too does Arduino Zero
     ::BitOrder bitOrder;
@@ -233,7 +316,6 @@ void RHHardwareSPI::begin()
     SPI.begin(frequency, bitOrder, dataMode);
 
 #elif (RH_PLATFORM == RH_PLATFORM_STM32F2) // Photon
-    Serial.println("HERE");
     uint8_t dataMode;
     if (_dataMode == DataMode0)
 	dataMode = SPI_MODE0;
@@ -281,7 +363,7 @@ void RHHardwareSPI::begin()
 
 #elif (RH_PLATFORM == RH_PLATFORM_ESP8266)
      // Requires SPI driver for ESP8266 from https://github.com/esp8266/Arduino/tree/master/libraries/SPI
-     // Which ppears to be in Arduino Board Manager ESP8266 Community version 2.1.0
+     // Which appears to be in Arduino Board Manager ESP8266 Community version 2.1.0
      // Contributed by David Skinner
      // begin comes first 
      SPI.begin();
@@ -327,6 +409,58 @@ void RHHardwareSPI::begin()
 	     SPI.setFrequency(16000000);
 	     break;
      }
+//// TODO - check if ESP32 needs this similar section
+//#elif (RH_PLATFORM == RH_PLATFORM_ESP32)
+//// Requires SPI driver for ESP8266 from https://github.com/esp8266/Arduino/tree/master/libraries/SPI
+//// Which appears to be in Arduino Board Manager ESP8266 Community version 2.1.0
+//// Contributed by David Skinner
+//// begin comes first 
+//#if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
+//	Serial.println("RHHardwareSPI RH_PLATFORM_ESP32 SPI.Begin");
+//#endif
+//SPI.begin();
+//
+//// datamode
+//switch (_dataMode)
+//{
+//case DataMode1:
+//	SPI.setDataMode(SPI_MODE1);
+//	break;
+//case DataMode2:
+//	SPI.setDataMode(SPI_MODE2);
+//	break;
+//case DataMode3:
+//	SPI.setDataMode(SPI_MODE3);
+//	break;
+//case DataMode0:
+//default:
+//	SPI.setDataMode(SPI_MODE0);
+//	break;
+//}
+//
+//// bitorder
+//SPI.setBitOrder(_bitOrder == BitOrderLSBFirst ? LSBFIRST : MSBFIRST);
+//
+//// frequency (this sets the divider)
+//switch (_frequency)
+//{
+//case Frequency1MHz:
+//default:
+//	SPI.setFrequency(1000000);
+//	break;
+//case Frequency2MHz:
+//	SPI.setFrequency(2000000);
+//	break;
+//case Frequency4MHz:
+//	SPI.setFrequency(4000000);
+//	break;
+//case Frequency8MHz:
+//	SPI.setFrequency(8000000);
+//	break;
+//case Frequency16MHz:
+//	SPI.setFrequency(16000000);
+//	break;
+//	 }
 
 #elif (RH_PLATFORM == RH_PLATFORM_RASPI) // Raspberry PI
   uint8_t dataMode;
@@ -369,11 +503,34 @@ void RHHardwareSPI::begin()
 #else
  #warning RHHardwareSPI does not support this platform yet. Consider adding it and contributing a patch.
 #endif
+
+#endif // SPI_HAS_TRANSACTION
 }
 
 void RHHardwareSPI::end() 
 {
     return SPI.end();
+}
+
+void RHHardwareSPI::beginTransaction()
+{
+#if defined(SPI_HAS_TRANSACTION)
+    SPI.beginTransaction(_settings);
+#endif
+}
+
+void RHHardwareSPI::endTransaction()
+{
+#if defined(SPI_HAS_TRANSACTION)
+    SPI.endTransaction();
+#endif
+}
+
+void RHHardwareSPI::usingInterrupt(uint8_t interrupt)
+{
+#if defined(SPI_HAS_TRANSACTION)
+
+#endif
 }
 
 #endif
