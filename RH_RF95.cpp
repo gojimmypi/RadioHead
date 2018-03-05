@@ -269,6 +269,10 @@ bool RH_RF95::init()
     return true;
 }
 
+uint8_t RH_RF95::readRegister(uint8_t regNumber) {
+	return spiRead(regNumber);
+}
+
 // C++ level interrupt handler for this instance
 // LORA is unusual in that it has several interrupt lines, and not a single, combined one.
 // On MiniWirelessLoRa, only one of the several interrupt lines (DI0) from the RFM95 is usefuly 

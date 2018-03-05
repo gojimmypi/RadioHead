@@ -622,6 +622,11 @@ public:
     /// \return true if initialisation succeeded.
     virtual bool    init();
 
+    /// Returns the value of a specific chip register.
+    /// For debugging purposes only.
+    /// \return value of specified regNumber
+    uint8_t readRegister(uint8_t regNumber);
+
     /// Prints the value of all chip registers
     /// to the Serial device if RH_HAVE_SERIAL is defined for the current platform
     /// For debugging purposes only.
