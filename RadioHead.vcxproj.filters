@@ -20,6 +20,7 @@
     <None Include="LICENSE" />
     <None Include="MANIFEST" />
     <None Include="project.cfg" />
+    <None Include="CONTRIBUTING.md" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="__vm\.RadioHead.vsarduino.h">
