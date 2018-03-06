@@ -17,9 +17,11 @@ Adafruit created a github'ified version here:
 
 https://github.com/adafruit/RadioHead
 
-but is not actively merged with updates from the official RadioHead site. It does however have over a dozen forks which may or may have valuable changes that may or may not find their way back to the official source mentioned above.
+but is not actively merged with updates from the official RadioHead site. It does however have over a dozen forks which may or may not have valuable changes that may or may not find their way back to the official source mentioned above.
 
-When using GitHub, a diff is created for every commit. The maintainers are not really interested in each increment - and thus is is best to have a single proposed diff file for all changes.
+When using GitHub, a diff is created for every commit. The maintainers are not really interested in each increment - and thus it is best to have a single proposed diff file for all changes.
+
+Note that when forking, all the previous commits from the upstream master are available (but undesired) incremental diffs.
 
 If you already have a GitHub respository, it would be best to either (1) create a new, empty branch or (2) create a new repository.
 
@@ -35,7 +37,7 @@ If you already have a GitHub respository, it would be best to either (1) create 
 
 Specifically:
 
-1. Create a New Branch (probably easiest with the wb interface: simply click the dropdown and create a new branch, in this case called AirSpayce.
+## 1. Create a New Branch (probably easiest with the wb interface: simply click the dropdown and create a new branch, in this case called AirSpayce).
 
 Go to your contribution workspace directory and clone the respository, for example (be careful not to use your normal github working directory!):
 
@@ -47,7 +49,7 @@ git checkout AirSpayce
 git branch --list
 ```
 
-2. Then remove everything except the hidden .git directory:
+## 2. Then remove everything except the hidden .git directory:
 
 ```
 rm -r examples
@@ -58,7 +60,7 @@ rm *.cpp
 rm *.h
 ```
 
-3. Commit the emptied directory:
+## 3. Commit the emptied directory:
 
 ```
 git commit -a -m "purge existing files in prep for zip"
@@ -66,7 +68,7 @@ git push
 git status
 ```
 
-4. Get the target file from RadioHead. Note that the zip file contains a directory called RadioHead. Unzip the file to the workspace directory. Note from commandline, it is easiest if the zip file is in the parent directory (the same place that git clone is used). 
+## 4. Get the target file from RadioHead. Note that the zip file contains a directory called RadioHead. Unzip the file to the workspace directory. Note from commandline, it is easiest if the zip file is in the parent directory (the same place that git clone is used). 
 
 ```
 cd ..
@@ -74,7 +76,7 @@ unzip RadioHead-1.83.zip
 cd RadioHead
 ```
 
-5. And commit these changes:
+## 5. And commit these changes:
 
 ```
 git add .
@@ -89,9 +91,9 @@ https://github.com/gojimmypi/RadioHead/tree/AirSpayce
 
 Note that there's now a clean commit of the RadioHead source. 
 
-6. Proceed to copy all the files you'd like to contribute from your main development working directory. Be sure to *NOT COPY* the hidden .git directory! You probably want to also exclude the Debug, Release, .vs and __vm directories (if you use Visual Studio) and exclude the .vscode directory (if you use VS Code)
+## 6. Proceed to copy all the files you'd like to contribute from your main development working directory. Be sure to *NOT COPY* the hidden .git directory! You probably want to also exclude the Debug, Release, .vs and __vm directories (if you use Visual Studio) and exclude the .vscode directory (if you use VS Code)
 
-7. commit your changes
+## 7. commit your changes
 
 ```
 git add .
@@ -100,7 +102,7 @@ git push
 git status
 ```
 
-8. Create adiff file with for use with patch:
+## 8. Create adiff file with for use with patch:
 
 ```
 git format-patch -1
@@ -124,8 +126,6 @@ Thanks for contributing to RadioHead!
 
 
 
-
-Copy the zip file contents
 
 # New Respository:
 1. create a new respository
