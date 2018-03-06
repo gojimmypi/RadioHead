@@ -793,7 +793,7 @@ public:
     /// \return SNR of the last received message in dB
     int				lastSNR();
 
-    /// Returns the count of the number of times the interupt has fired. 
+    /// Returns the count of the number of times the interrupt has fired. 
 	int				countInterrupt();
 
 

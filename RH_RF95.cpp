@@ -287,17 +287,16 @@ int RH_RF95::countInterrupt() {
 	return _countInterrupt;
 }
 
-void RH_RF95::handleInterruptTest() {
+// useful only for debugging, is this increment-counter-only interrupt, to test problematic interrupts
+void RH_IRAM_SAFE_INTERRUPT_HANDLER RH_RF95::handleInterruptTest()
+{
 	_countInterrupt++;
 }
 
-// IRAM_ATTR needed for ESP32 ?
-void RH_RF95::handleInterrupt()
+// see https://github.com/espressif/esp-idf/tree/master/components/spi_flash#iram-safe-interrupt-handlers
+void RH_IRAM_SAFE_INTERRUPT_HANDLER RH_RF95::handleInterrupt()
 {
 	_countInterrupt++;
-	//Serial.print("RH_RF95::handleInterrupt");
-	//Serial.println("!");
-
 
 	// Read the interrupt register
 	uint8_t irq_flags = spiRead(RH_RF95_REG_12_IRQ_FLAGS);
@@ -358,24 +357,28 @@ void RH_RF95::handleInterrupt()
 // These are low level functions that call the interrupt handler for the correct
 // instance of RH_RF95.
 // 3 interrupts allows us to have 3 different devices
-void RH_RF95::isr0()
+
+void RH_IRAM_SAFE_INTERRUPT_HANDLER RH_RF95::isr0()
 {
 	if (_deviceForInterrupt[0])
 		_deviceForInterrupt[0]->handleInterrupt();
 }
-void RH_RF95::isr1()
+
+void RH_IRAM_SAFE_INTERRUPT_HANDLER RH_RF95::isr1()
 {
 	if (_deviceForInterrupt[1])
 		_deviceForInterrupt[1]->handleInterrupt();
 }
-void RH_RF95::isr2()
+
+void RH_IRAM_SAFE_INTERRUPT_HANDLER RH_RF95::isr2()
 {
 	if (_deviceForInterrupt[2])
 		_deviceForInterrupt[2]->handleInterrupt();
 }
 
 // Check whether the latest received message is complete and uncorrupted
-void RH_RF95::validateRxBuf()
+// validRxBuf is marked for safe interrupt, as it is called from interrupt
+void RH_IRAM_SAFE_INTERRUPT_HANDLER RH_RF95::validateRxBuf()
 {
 	if (_bufLen < 4) {
 		_rxBufValid = false;
@@ -496,7 +499,8 @@ bool RH_RF95::setFrequency(float centre)
     return true;
 }
 
-void RH_RF95::setModeIdle()
+// setModeIdle is marked for safe interrupt, as it is called from interrupt
+void RH_IRAM_SAFE_INTERRUPT_HANDLER RH_RF95::setModeIdle()
 {
 #if defined(RH_HAVE_SERIAL) && (RH_DEBUG_VERBOSE >= 1)
 	Serial.println("RH_RF95 Set mode idle! ");

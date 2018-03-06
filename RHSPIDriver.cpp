@@ -33,7 +33,8 @@ bool RHSPIDriver::init()
     return true;
 }
 
-uint8_t RHSPIDriver::spiRead(uint8_t reg)
+// spiRead is marked for safe interrupt, as it is called from interrupt
+uint8_t RH_IRAM_SAFE_INTERRUPT_HANDLER RHSPIDriver::spiRead(uint8_t reg)
 {
     uint8_t val;
     ATOMIC_BLOCK_START;
@@ -51,7 +52,8 @@ uint8_t RHSPIDriver::spiRead(uint8_t reg)
     return val;
 }
 
-uint8_t RHSPIDriver::spiWrite(uint8_t reg, uint8_t val)
+// spiWrite is marked for safe interrupt, as it is called from interrupt
+uint8_t RH_IRAM_SAFE_INTERRUPT_HANDLER RHSPIDriver::spiWrite(uint8_t reg, uint8_t val)
 {
     uint8_t status = 0;
     ATOMIC_BLOCK_START;
@@ -72,7 +74,8 @@ uint8_t RHSPIDriver::spiWrite(uint8_t reg, uint8_t val)
     return status;
 }
 
-uint8_t RHSPIDriver::spiBurstRead(uint8_t reg, uint8_t* dest, uint8_t len)
+// spiBurstRead is marked for safe interrupt, as it is called from interrupt
+uint8_t RH_IRAM_SAFE_INTERRUPT_HANDLER RHSPIDriver::spiBurstRead(uint8_t reg, uint8_t* dest, uint8_t len)
 {
     uint8_t status = 0;
     ATOMIC_BLOCK_START;

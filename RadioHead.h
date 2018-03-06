@@ -1104,6 +1104,9 @@ these examples and explanations and extend them to suit your needs.
 #define RH_PLATFORM_ESP32            14						   
 #define RH_PLATFORM_NRF52            15
 
+// the default RH_IRAM_SAFE_INTERRUPT_HANDLER is blank, but some processors such as ESP32 will set to IRAM_ATTR
+#define RH_IRAM_SAFE_INTERRUPT_HANDLER
+
 // serial debug verbosity; 0 = no debug messages; 
 // set to value > 1 for optional serial port debugging messages
 // (higher number for greater verbosity)
@@ -1181,6 +1184,21 @@ these examples and explanations and extend them to suit your needs.
  #define RH_HAVE_SERIAL
  #define SS 5 // needed in RHSPIDriver, SS is otherwise defined for ESP32 and should not default later; added gojimmypi 12FEB18
 
+// For theESP32:
+//
+// You must ensure all data and functions accessed by these interrupt handlers are located in IRAM or DRAM. This includes any functions that the handler calls.
+//
+// If a function or symbol is not correctly put into IRAM/DRAM and the interrupt handler reads from the flash cache during a flash operation, it will cause a 
+// crash due to Illegal Instruction exception (for code which should be in IRAM) or garbage data to be read (for constant data which should be in DRAM).
+//
+// see https://github.com/espressif/esp-idf/blob/master/components/spi_flash/README.rst#iram-safe-interrupt-handlers
+//
+// see local: hardware\esspressif\esp32\cores\esp32\esp32-hal-gpio.h for attachInterrupt() and detachInterrupt()
+//
+// we'll mark ESP32-safe interrupts (all all related functions) when RH_IRAM_SAFE_INTERRUPT_HANDLER is defined with IRAM_ATTR
+#undef RH_IRAM_SAFE_INTERRUPT_HANDLER
+#define RH_IRAM_SAFE_INTERRUPT_HANDLER IRAM_ATTR
+ 
 #elif (RH_PLATFORM == RH_PLATFORM_MSP430) // LaunchPad specific
  #include "legacymsp430.h"
  #include "Energia.h"
