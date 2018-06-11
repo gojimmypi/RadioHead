@@ -292,14 +292,20 @@ unzip develop.zip
 \endcode
 - Make a working area containing the RadioHead library source code and your RadioHead sketch. You must
   rename the sketch from .pde or .ino to application.cpp
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcomment"
 \code
 cd /tmp
 mkdir RadioHead
 cd RadioHead
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcomment"
 cp /usr/local/projects/arduino/libraries/RadioHead/*.h .
+#pragma GCC diagnostic pop
 cp /usr/local/projects/arduino/libraries/RadioHead/*.cpp .
 cp /usr/local/projects/arduino/libraries/RadioHead/examples/cc110/cc110_client/cc110_client.pde application.cpp
 \endcode
+#pragma GCC diagnostic pop
 - Edit application.cpp and comment out any \#include <SPI.h> so it looks like:
 \code
   // #include <SPI.h>
